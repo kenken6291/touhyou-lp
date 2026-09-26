@@ -111,7 +111,9 @@
 
     /* 動画：16:9比率を常に維持 */
     .video-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #0F1B3A; border-radius: 20px; overflow: hidden; }
-    .video-frame iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+    .video-frame iframe, .video-frame video { position:absolute; inset:0; width:100%; height:100%; border:0; object-fit: contain; background:#0F1B3A; }
+    /* 縦長動画：スマホ画面のような縦枠で中央に */
+    .video-frame.is-portrait { max-width: 340px; margin: 0 auto; border-radius: 28px; border: 6px solid #16244A; }
     @supports not (aspect-ratio: 16 / 9) {
       .video-frame { height: 0; padding-top: 56.25%; }
     }
@@ -212,7 +214,7 @@
           <!--
             ★動画の差し替えは、下の <script> 内の VIDEO_URL を書き換えるだけです。
               ・Googleドライブ：共有設定を「リンクを知っている全員」にして
-                https://drive.google.com/file/d/【FILE_ID】/preview
+                https://drive.google.com/file/d/1vkyNHmR7f-6bmkos6abzTon1RYciduGl/preview
               ・YouTube：
                 https://www.youtube.com/embed/【動画ID】
             空欄のままなら「準備中」の表示になります。
@@ -391,11 +393,12 @@
        ★ 設定エリア（ここだけ書き換えればOK）
        ========================================================= */
     const CONFIG = {
-      // ▼紹介動画のURL（空欄なら「準備中」表示）
-      //   Googleドライブ： 'https://drive.google.com/file/d/【FILE_ID】/preview'
-      //   YouTube      ： 'https://www.youtube.com/embed/【動画ID】'
+      // ▼紹介動画（空欄なら「準備中」表示）
+      //   リポジトリ内の動画：'demo.mp4'（index.htmlと同じ場所に置く）
+      //   Googleドライブ ：'https://drive.google.com/file/d/【FILE_ID】/preview'
+      //   YouTube       ：'https://www.youtube.com/embed/【動画ID】'
       //   ※ドライブのURLが「/view」で終わる場合も自動で「/preview」に直します
-      VIDEO_URL: '',
+      VIDEO_URL: 'demo.mp4',
 
       // ▼GAS（Google Apps Script）のWebアプリURL
       //   デプロイ → ウェブアプリ → アクセスできるユーザー「全員」で発行した
@@ -420,12 +423,33 @@
     }
 
     function setupVideo() {
-      const src = toEmbedUrl(CONFIG.VIDEO_URL);
-      if (!src) return;
+      const url = CONFIG.VIDEO_URL;
+      if (!url) return;
       const frame = document.getElementById('videoFrame');
       document.getElementById('videoPlaceholder')?.remove();
+
+      // リポジトリ内の動画ファイル（mp4 / webm）→ <video>で再生
+      if (/\.(mp4|webm|mov)(\?.*)?$/i.test(url)) {
+        const video = document.createElement('video');
+        video.src = url;
+        video.controls = true;
+        video.playsInline = true;      // iPhoneで全画面に切り替わらない
+        video.preload = 'metadata';
+        video.setAttribute('aria-label', '投票アプリの紹介動画');
+        // 動画の縦横比に枠を合わせる（縦長動画はスマホ画面のような縦枠に）
+        video.addEventListener('loadedmetadata', () => {
+          const w = video.videoWidth, h = video.videoHeight;
+          if (!w || !h) return;
+          frame.style.aspectRatio = `${w} / ${h}`;
+          if (h > w) frame.classList.add('is-portrait');
+        });
+        frame.appendChild(video);
+        return;
+      }
+
+      // Googleドライブ / YouTube → <iframe>で埋め込み
       const iframe = document.createElement('iframe');
-      iframe.src = src;
+      iframe.src = toEmbedUrl(url);
       iframe.title = '投票アプリの紹介動画';
       iframe.loading = 'lazy';
       iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
