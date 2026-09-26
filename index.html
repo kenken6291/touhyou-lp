@@ -443,6 +443,17 @@
           frame.style.aspectRatio = `${w} / ${h}`;
           if (h > w) frame.classList.add('is-portrait');
         });
+        // 読み込めなかったときは、枠の中に原因を表示
+        video.addEventListener('error', () => {
+          const abs = new URL(url, location.href).href;
+          frame.innerHTML = `
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-center text-white p-6">
+              <span class="text-4xl mb-3" aria-hidden="true">⚠️</span>
+              <p class="font-maru font-bold text-lg">動画ファイルが見つかりません</p>
+              <p class="text-sm opacity-85 mt-2 break-all">${abs}</p>
+              <p class="text-sm opacity-85 mt-2">ファイル名と置き場所（index.htmlと同じ場所）を確認してください</p>
+            </div>`;
+        });
         frame.appendChild(video);
         return;
       }
