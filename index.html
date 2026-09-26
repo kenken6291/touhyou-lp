@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>みんなの投票 ｜ あなたの1票で盛り上がる、簡単・楽しいオンライン投票</title>
+  <meta name="description" content="登録不要ですぐ参加。ワンタップで投票して、みんなの結果をその場でグラフで確認。サークルの企画決めや趣味の話題に。">
+
+  <!-- OGP（SNS・LINEでシェアしたときの表示） -->
+  <meta property="og:title" content="あなたの1票で盛り上がる！簡単・楽しいオンライン投票">
+  <meta property="og:description" content="登録不要ですぐ参加。みんなのリアルな声が集まる場所へ。">
+  <meta property="og:type" content="website">
+  <!-- ▼このLP自身の公開URL（リポジトリ名 touhyou-lp） -->
+  <link rel="canonical" href="https://kenken6291.github.io/touhyou-lp/">
+  <meta property="og:url" content="https://kenken6291.github.io/touhyou-lp/">
+  <meta property="og:site_name" content="みんなの投票">
+  <meta property="og:locale" content="ja_JP">
+  <!-- ▼OGP画像を用意したら、リポジトリ直下に ogp.png（1200×630px推奨）を置いてコメントを外す -->
+  <!-- <meta property="og:image" content="https://kenken6291.github.io/touhyou-lp/ogp.png"> -->
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗳️</text></svg>">
+
+  <!-- フォント：見出しは丸ゴシック、本文はユニバーサルデザインフォント（シニアにも読みやすい） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS（CDN） -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink:   '#16244A', // 文字・濃紺
+            vote:  '#2F5BEA', // メインの青
+            sky:   '#EEF4FF', // 淡い背景
+            sun:   '#FFC93C', // 投票用紙の黄色（CTA）
+            leaf:  '#2BAE7E', // 結果・成功の緑
+            coral: '#F2706B'  // 差し色
+          },
+          fontFamily: {
+            maru: ['"Zen Maru Gothic"', '"Hiragino Maru Gothic ProN"', '"Hiragino Sans"', 'sans-serif'],
+            ud:   ['"BIZ UDPGothic"', '"Hiragino Sans"', '"Yu Gothic"', 'Meiryo', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root { --ink:#16244A; --vote:#2F5BEA; --sun:#FFC93C; --leaf:#2BAE7E; }
+    html { font-size: 18px; scroll-behavior: smooth; }
+    @media (min-width: 768px) { html { font-size: 19px; } }
+    body { font-family: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic", Meiryo, sans-serif; color: var(--ink); background:#fff; line-height: 1.85; -webkit-font-smoothing: antialiased; }
+
+    /* iPhoneのノッチ・下部バー対策 */
+    body { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .site-header { padding-top: env(safe-area-inset-top, 0px); }
+
+    /* キーボード操作時のフォーカスを見やすく */
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 3px solid var(--vote); outline-offset: 3px; border-radius: 12px;
+    }
+
+    /* 投票用紙っぽいCTAボタン */
+    .btn-vote {
+      display:inline-flex; align-items:center; justify-content:center; gap:.6rem;
+      background: var(--sun); color: var(--ink);
+      font-family: "Zen Maru Gothic", sans-serif; font-weight: 900;
+      font-size: 1.15rem; padding: 1.05rem 2rem; border-radius: 999px;
+      border: 3px solid var(--ink); box-shadow: 0 6px 0 var(--ink);
+      transition: transform .15s ease, box-shadow .15s ease;
+      min-height: 64px;
+    }
+    .btn-vote:hover { transform: translateY(2px); box-shadow: 0 4px 0 var(--ink); }
+    .btn-vote:active { transform: translateY(6px); box-shadow: 0 0 0 var(--ink); }
+
+    /* ヒーローの体験投票カード */
+    .poll-option {
+      position: relative; overflow: hidden; width: 100%; text-align: left;
+      border: 2px solid #C9D6F5; border-radius: 14px; background:#fff;
+      padding: .9rem 1rem; min-height: 58px; font-weight: 700; font-size: 1.02rem;
+      transition: border-color .2s ease;
+    }
+    .poll-option:hover { border-color: var(--vote); }
+    .poll-option .bar {
+      position:absolute; inset:0 auto 0 0; width:0%;
+      background: #DCE6FF; z-index:0;
+      transition: width .9s cubic-bezier(.2,.8,.2,1);
+    }
+    .poll-option.is-mine .bar { background: #FFE7A3; }
+    .poll-option.is-mine { border-color: var(--ink); }
+    .poll-option .label, .poll-option .pct { position: relative; z-index: 1; }
+    .poll-option .pct { position:absolute; right:1rem; top:50%; transform:translateY(-50%); opacity:0; transition: opacity .4s ease .5s; font-family:"Zen Maru Gothic",sans-serif; font-weight:900; }
+    .poll-card.voted .poll-option .pct { opacity:1; }
+    .poll-card.voted .poll-option { cursor: default; }
+
+    /* スタンプ（投票完了の印） */
+    .stamp {
+      position:absolute; right:-6px; top:-18px; width:88px; height:88px; border-radius:50%;
+      border:4px solid var(--coral, #F2706B); color:#F2706B;
+      display:flex; align-items:center; justify-content:center; text-align:center;
+      font-family:"Zen Maru Gothic",sans-serif; font-weight:900; font-size:.95rem; line-height:1.15;
+      transform: rotate(-14deg) scale(1.6); opacity:0; background: rgba(255,255,255,.85);
+      transition: transform .35s cubic-bezier(.3,1.6,.5,1), opacity .2s ease;
+      pointer-events:none;
+    }
+    .poll-card.voted .stamp { transform: rotate(-14deg) scale(1); opacity:1; }
+
+    /* 動画：16:9比率を常に維持 */
+    .video-frame { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #0F1B3A; border-radius: 20px; overflow: hidden; }
+    .video-frame iframe { position:absolute; inset:0; width:100%; height:100%; border:0; }
+    @supports not (aspect-ratio: 16 / 9) {
+      .video-frame { height: 0; padding-top: 56.25%; }
+    }
+
+    /* 利用シーンのミニ結果バー */
+    .mini-bar { height: 10px; border-radius: 999px; background: #E6ECFA; overflow: hidden; }
+    .mini-bar > span { display:block; height:100%; border-radius:999px; }
+
+    /* スクロールで表示（控えめ） */
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s ease; }
+    .reveal.is-visible { opacity: 1; transform: none; }
+
+    /* 動きを減らす設定の人には動かさない */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .reveal { opacity:1; transform:none; transition:none; }
+      .poll-option .bar, .stamp, .btn-vote { transition: none; }
+    }
+
+    /* 背景の投票用紙柄（ごく薄い罫線） */
+    .ballot-bg {
+      background-color: #EEF4FF;
+      background-image: repeating-linear-gradient(0deg, transparent 0 38px, rgba(47,91,234,.07) 38px 39px);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ===================== ヘッダー ===================== -->
+  <header class="site-header sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-[#E3E9F7]">
+    <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
+      <a href="#top" class="flex items-center gap-2 font-maru font-black text-xl text-ink">
+        <span aria-hidden="true" class="text-2xl">🗳️</span>みんなの投票
+      </a>
+      <a href="https://kenken6291.github.io/touhyou/" class="hidden sm:inline-flex items-center font-maru font-bold text-base bg-ink text-white rounded-full px-5 py-2.5 hover:bg-vote transition-colors" data-track="header_cta">
+        投票してみる
+      </a>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <!-- ===================== ① ファーストビュー ===================== -->
+    <section class="ballot-bg">
+      <div class="max-w-6xl mx-auto px-5 pt-12 pb-16 md:pt-20 md:pb-24 grid md:grid-cols-2 gap-12 items-center">
+
+        <div>
+          <p class="inline-block font-maru font-bold text-vote bg-white border-2 border-vote rounded-full px-4 py-1 text-sm mb-5">登録不要・無料</p>
+          <h1 class="font-maru font-black text-ink text-[2.1rem] leading-[1.35] md:text-[3rem] md:leading-[1.3] tracking-wide">
+            あなたの1票で<br>盛り上がる！<br>簡単・楽しい<br class="md:hidden">オンライン投票
+          </h1>
+          <p class="mt-6 text-lg md:text-xl max-w-md">
+            登録不要ですぐ参加。<br>みんなのリアルな声が集まる場所へ。
+          </p>
+          <div class="mt-9 flex flex-col sm:flex-row gap-4 sm:items-center">
+            <a href="https://kenken6291.github.io/touhyou/" class="btn-vote" data-track="hero_cta">
+              今すぐ投票に参加する
+            </a>
+            <a href="#video" class="font-bold underline underline-offset-4 decoration-2 decoration-vote text-ink text-center sm:text-left py-2">
+              使い方を動画で見る
+            </a>
+          </div>
+        </div>
+
+        <!-- 体験投票カード：その場で押せる -->
+        <div class="relative">
+          <div id="demoPoll" class="poll-card relative bg-white rounded-[22px] border-[3px] border-ink p-6 md:p-7 shadow-[10px_10px_0_#2F5BEA]">
+            <div class="stamp" aria-hidden="true">投票<br>ありがとう</div>
+            <p class="text-sm font-bold text-vote mb-1">ためしに1票どうぞ</p>
+            <h2 class="font-maru font-black text-xl md:text-2xl leading-snug mb-5">今度の週末、何して過ごす？</h2>
+
+            <div class="space-y-3" role="group" aria-label="週末の過ごし方の選択肢">
+              <button type="button" class="poll-option" data-base="38"><span class="bar"></span><span class="label">🚶 散歩・ハイキング</span><span class="pct"></span></button>
+              <button type="button" class="poll-option" data-base="27"><span class="bar"></span><span class="label">🍵 カフェでのんびり</span><span class="pct"></span></button>
+              <button type="button" class="poll-option" data-base="21"><span class="bar"></span><span class="label">🎤 趣味の集まりへ</span><span class="pct"></span></button>
+              <button type="button" class="poll-option" data-base="14"><span class="bar"></span><span class="label">🏠 家でゆっくり</span><span class="pct"></span></button>
+            </div>
+
+            <p id="demoPollNote" class="mt-5 text-sm text-[#55607A]" aria-live="polite">
+              ボタンを押すと、みんなの結果が見られます。
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ===================== ② 紹介・デモ動画 ===================== -->
+    <section id="video" class="py-16 md:py-24 bg-white">
+      <div class="max-w-4xl mx-auto px-5">
+        <div class="reveal text-center mb-10">
+          <h2 class="font-maru font-black text-[1.8rem] md:text-[2.3rem] leading-snug">1分でわかる、使い方</h2>
+          <p class="mt-3 text-lg">テーマを選んで、押すだけ。結果はその場でグラフに。</p>
+        </div>
+
+        <div class="reveal">
+          <!--
+            ★動画の差し替えは、下の <script> 内の VIDEO_URL を書き換えるだけです。
+              ・Googleドライブ：共有設定を「リンクを知っている全員」にして
+                https://drive.google.com/file/d/【FILE_ID】/preview
+              ・YouTube：
+                https://www.youtube.com/embed/【動画ID】
+            空欄のままなら「準備中」の表示になります。
+          -->
+          <div class="video-frame" id="videoFrame">
+            <div id="videoPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-center text-white p-6">
+              <span class="text-5xl mb-3" aria-hidden="true">🎬</span>
+              <p class="font-maru font-bold text-xl">紹介動画は準備中です</p>
+              <p class="text-sm opacity-80 mt-2">公開までもう少しお待ちください</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ③ 3つの特徴 ===================== -->
+    <section id="features" class="py-16 md:py-24 bg-sky">
+      <div class="max-w-6xl mx-auto px-5">
+        <h2 class="reveal font-maru font-black text-[1.8rem] md:text-[2.3rem] leading-snug text-center mb-12">
+          むずかしい操作は、ありません
+        </h2>
+
+        <div class="grid md:grid-cols-3 gap-6 md:gap-8">
+          <article class="reveal bg-white rounded-[20px] p-7 border-2 border-[#D6E0F8]">
+            <div class="w-16 h-16 rounded-2xl bg-sun border-[3px] border-ink flex items-center justify-center mb-5" aria-hidden="true">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#16244A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l2.5 2.5L16 9"/><rect x="3.5" y="3.5" width="17" height="17" rx="4"/></svg>
+            </div>
+            <h3 class="font-maru font-black text-2xl mb-3">ワンクリックで即回答</h3>
+            <p>名前やメールの入力はいりません。気になる選択肢を押せば、それで投票完了です。</p>
+          </article>
+
+          <article class="reveal bg-white rounded-[20px] p-7 border-2 border-[#D6E0F8]">
+            <div class="w-16 h-16 rounded-2xl bg-leaf border-[3px] border-ink flex items-center justify-center mb-5" aria-hidden="true">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M5 20V13"/><path d="M12 20V6"/><path d="M19 20v-9"/></svg>
+            </div>
+            <h3 class="font-maru font-black text-2xl mb-3">結果がリアルタイムで見える</h3>
+            <p>投票した瞬間に、みんなの答えがグラフと数字で表示されます。自分は多数派？少数派？</p>
+          </article>
+
+          <article class="reveal bg-white rounded-[20px] p-7 border-2 border-[#D6E0F8]">
+            <div class="w-16 h-16 rounded-2xl bg-coral border-[3px] border-ink flex items-center justify-center mb-5" aria-hidden="true">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5.5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="18.5" r="2.5"/><path d="M8.2 10.8l7.6-4.1M8.2 13.2l7.6 4.1"/></svg>
+            </div>
+            <h3 class="font-maru font-black text-2xl mb-3">仲間と話題をシェア</h3>
+            <p>サークルの仲間やLINEグループに、リンクひとつで送れます。次の集まりの話のタネに。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== ④ 利用シーン・サンプルテーマ ===================== -->
+    <section id="scenes" class="py-16 md:py-24 bg-white">
+      <div class="max-w-6xl mx-auto px-5">
+        <div class="reveal max-w-2xl mb-12">
+          <h2 class="font-maru font-black text-[1.8rem] md:text-[2.3rem] leading-snug">たとえば、こんなテーマで</h2>
+          <p class="mt-3 text-lg">ちょっとした話題から、仲間うちの相談ごとまで。</p>
+        </div>
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- テーマ1 -->
+          <div class="reveal rounded-[20px] border-2 border-ink p-6">
+            <p class="text-sm font-bold text-vote">休日の話題</p>
+            <h3 class="font-maru font-black text-xl mt-1 mb-4">週末の過ごし方</h3>
+            <ul class="space-y-3 text-[.95rem]">
+              <li><div class="flex justify-between"><span>散歩・ハイキング</span><b>38%</b></div><div class="mini-bar"><span style="width:38%;background:#2F5BEA"></span></div></li>
+              <li><div class="flex justify-between"><span>カフェでのんびり</span><b>27%</b></div><div class="mini-bar"><span style="width:27%;background:#7F9BF0"></span></div></li>
+              <li><div class="flex justify-between"><span>家でゆっくり</span><b>14%</b></div><div class="mini-bar"><span style="width:14%;background:#B9C8F5"></span></div></li>
+            </ul>
+          </div>
+
+          <!-- テーマ2 -->
+          <div class="reveal rounded-[20px] border-2 border-ink p-6 bg-[#FFF8E1]">
+            <p class="text-sm font-bold text-[#A26A00]">推し活・趣味</p>
+            <h3 class="font-maru font-black text-xl mt-1 mb-4">いま一番ハマっている趣味は？</h3>
+            <ul class="space-y-3 text-[.95rem]">
+              <li><div class="flex justify-between"><span>旅行・ドライブ</span><b>31%</b></div><div class="mini-bar"><span style="width:31%;background:#E0A800"></span></div></li>
+              <li><div class="flex justify-between"><span>家庭菜園</span><b>24%</b></div><div class="mini-bar"><span style="width:24%;background:#F2C94C"></span></div></li>
+              <li><div class="flex justify-between"><span>歌・カラオケ</span><b>19%</b></div><div class="mini-bar"><span style="width:19%;background:#F7DC8A"></span></div></li>
+            </ul>
+          </div>
+
+          <!-- テーマ3 -->
+          <div class="reveal rounded-[20px] border-2 border-ink p-6">
+            <p class="text-sm font-bold text-leaf">サークル・地域の集まり</p>
+            <h3 class="font-maru font-black text-xl mt-1 mb-4">次回の懇親会、どこにする？</h3>
+            <ul class="space-y-3 text-[.95rem]">
+              <li><div class="flex justify-between"><span>いつもの居酒屋</span><b>45%</b></div><div class="mini-bar"><span style="width:45%;background:#2BAE7E"></span></div></li>
+              <li><div class="flex justify-between"><span>公園でお花見</span><b>35%</b></div><div class="mini-bar"><span style="width:35%;background:#7ACBAE"></span></div></li>
+              <li><div class="flex justify-between"><span>ランチ会</span><b>20%</b></div><div class="mini-bar"><span style="width:20%;background:#B7E3D2"></span></div></li>
+            </ul>
+          </div>
+        </div>
+
+        <p class="reveal mt-8 text-sm text-[#55607A]">※表示している数値はイメージです。</p>
+      </div>
+    </section>
+
+    <!-- ===================== ⑤ 最終CTA ===================== -->
+    <section class="bg-ink text-white py-16 md:py-24">
+      <div class="reveal max-w-3xl mx-auto px-5 text-center">
+        <h2 class="font-maru font-black text-[1.9rem] md:text-[2.6rem] leading-snug">
+          さっそく、1票入れてみませんか？
+        </h2>
+        <p class="mt-4 text-lg opacity-90">登録なし・無料。スマホからでもすぐ参加できます。</p>
+        <div class="mt-10">
+          <a href="https://kenken6291.github.io/touhyou/" class="btn-vote text-[1.25rem] px-10 py-5" style="box-shadow:0 6px 0 #0A1430;border-color:#0A1430" data-track="final_cta">
+            今すぐ投票に参加する
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== お問い合わせ・新着通知（GAS連携） ===================== -->
+    <section id="contact" class="py-16 md:py-24 bg-sky">
+      <div class="max-w-2xl mx-auto px-5">
+        <div class="reveal mb-8">
+          <h2 class="font-maru font-black text-[1.6rem] md:text-[2rem] leading-snug">ご意見・新着テーマのお知らせ</h2>
+          <p class="mt-3">「こんなテーマで投票したい」というリクエストや、新しいテーマが出たときのお知らせ希望はこちらから。</p>
+        </div>
+
+        <form id="contactForm" class="reveal bg-white rounded-[20px] border-2 border-[#D6E0F8] p-6 md:p-8 space-y-5" novalidate>
+          <div>
+            <label for="cType" class="block font-bold mb-2">ご用件</label>
+            <select id="cType" name="type" class="w-full border-2 border-[#C9D6F5] rounded-xl px-4 py-3 text-base bg-white">
+              <option value="request">投票テーマのリクエスト</option>
+              <option value="notify">新着テーマのお知らせを受け取りたい</option>
+              <option value="contact">その他のお問い合わせ</option>
+            </select>
+          </div>
+          <div>
+            <label for="cName" class="block font-bold mb-2">お名前（ニックネーム可・任意）</label>
+            <input id="cName" name="name" type="text" autocomplete="nickname" class="w-full border-2 border-[#C9D6F5] rounded-xl px-4 py-3 text-base">
+          </div>
+          <div>
+            <label for="cEmail" class="block font-bold mb-2">メールアドレス <span class="text-coral text-sm">（お知らせ希望の方は必須）</span></label>
+            <input id="cEmail" name="email" type="email" autocomplete="email" inputmode="email" class="w-full border-2 border-[#C9D6F5] rounded-xl px-4 py-3 text-base">
+          </div>
+          <div>
+            <label for="cMessage" class="block font-bold mb-2">内容</label>
+            <textarea id="cMessage" name="message" rows="4" class="w-full border-2 border-[#C9D6F5] rounded-xl px-4 py-3 text-base" placeholder="例：地元のおすすめ温泉ランキングをやってほしい"></textarea>
+          </div>
+          <!-- スパム対策（人には見えない欄。入力があれば送信しない） -->
+          <input type="text" name="website" id="cHoney" tabindex="-1" autocomplete="off" class="hidden" aria-hidden="true">
+
+          <button id="contactSubmit" type="submit" class="w-full bg-vote hover:bg-ink text-white font-maru font-black text-lg rounded-full py-4 transition-colors min-h-[60px]">
+            送信する
+          </button>
+          <p id="contactStatus" class="text-center font-bold min-h-[1.5em]" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================== フッター ===================== -->
+  <footer class="bg-white border-t border-[#E3E9F7] py-10">
+    <div class="max-w-6xl mx-auto px-5 flex flex-col md:flex-row gap-5 md:items-center md:justify-between text-[.95rem]">
+      <p class="font-maru font-black text-lg">🗳️ みんなの投票</p>
+      <nav class="flex flex-wrap gap-x-6 gap-y-2" aria-label="フッターリンク">
+        <a href="https://kenken6291.github.io/touhyou/" class="hover:text-vote underline-offset-4 hover:underline">投票ページへ</a>
+        <a href="#video" class="hover:text-vote underline-offset-4 hover:underline">使い方動画</a>
+        <a href="#contact" class="hover:text-vote underline-offset-4 hover:underline">お問い合わせ</a>
+        <!-- ▼ポータル（ホームページ）のURLがあれば差し替え -->
+        <a href="https://kenken6291.github.io/" class="hover:text-vote underline-offset-4 hover:underline">ほかのアプリ</a>
+      </nav>
+      <p class="text-[#55607A] text-sm">&copy; <span id="year"></span> kenken6291</p>
+    </div>
+  </footer>
+
+  <!-- スマホ用：画面下に固定の投票ボタン（ヒーローを過ぎたら表示） -->
+  <div id="stickyCta" class="md:hidden fixed left-0 right-0 bottom-0 z-50 px-4 pt-3 bg-white/95 backdrop-blur border-t border-[#E3E9F7] translate-y-full transition-transform duration-300"
+       style="padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));">
+    <a href="https://kenken6291.github.io/touhyou/" class="btn-vote w-full text-lg py-3" style="min-height:56px" data-track="sticky_cta">今すぐ投票に参加する</a>
+  </div>
+
+  <script>
+    /* =========================================================
+       ★ 設定エリア（ここだけ書き換えればOK）
+       ========================================================= */
+    const CONFIG = {
+      // ▼紹介動画のURL（空欄なら「準備中」表示）
+      //   Googleドライブ： 'https://drive.google.com/file/d/【FILE_ID】/preview'
+      //   YouTube      ： 'https://www.youtube.com/embed/【動画ID】'
+      //   ※ドライブのURLが「/view」で終わる場合も自動で「/preview」に直します
+      VIDEO_URL: '',
+
+      // ▼GAS（Google Apps Script）のWebアプリURL
+      //   デプロイ → ウェブアプリ → アクセスできるユーザー「全員」で発行した
+      //   https://script.google.com/macros/s/【デプロイID】/exec を貼り付け
+      //   空欄の間はフォームは「テスト表示」だけ行い、送信はしません
+      GAS_ENDPOINT: '',
+
+      // ▼アクセス集計（CTAクリック・ページ表示）をGASに送るか
+      ENABLE_TRACKING: false
+    };
+
+    /* ---------- 動画の埋め込み ---------- */
+    function toEmbedUrl(url) {
+      if (!url) return '';
+      // Googleドライブ：/view や ?usp=sharing を /preview に
+      const drive = url.match(/drive\.google\.com\/file\/d\/([^/?#]+)/);
+      if (drive) return `https://drive.google.com/file/d/${drive[1]}/preview`;
+      // YouTube：watch?v= / youtu.be / shorts を embed に
+      const yt = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]{11})/);
+      if (yt) return `https://www.youtube.com/embed/${yt[1]}?rel=0`;
+      return url;
+    }
+
+    function setupVideo() {
+      const src = toEmbedUrl(CONFIG.VIDEO_URL);
+      if (!src) return;
+      const frame = document.getElementById('videoFrame');
+      document.getElementById('videoPlaceholder')?.remove();
+      const iframe = document.createElement('iframe');
+      iframe.src = src;
+      iframe.title = '投票アプリの紹介動画';
+      iframe.loading = 'lazy';
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
+      iframe.allowFullscreen = true;
+      frame.appendChild(iframe);
+    }
+
+    /* ---------- ヒーローの体験投票 ---------- */
+    function setupDemoPoll() {
+      const card = document.getElementById('demoPoll');
+      const options = [...card.querySelectorAll('.poll-option')];
+      const note = document.getElementById('demoPollNote');
+
+      options.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          if (card.classList.contains('voted')) return;
+
+          // 見本の数値に、自分の1票(+1)を足して割合を出す
+          const base = options.map(o => Number(o.dataset.base));
+          const idx = options.indexOf(btn);
+          base[idx] += 1;
+          const total = base.reduce((a, b) => a + b, 0);
+
+          btn.classList.add('is-mine');
+          card.classList.add('voted');
+          options.forEach((o, i) => {
+            const pct = Math.round(base[i] / total * 100);
+            o.querySelector('.bar').style.width = pct + '%';
+            o.querySelector('.pct').textContent = pct + '%';
+            o.setAttribute('aria-pressed', i === idx ? 'true' : 'false');
+          });
+
+          note.innerHTML = 'これが「結果がすぐ見える」体験です。<a href="https://kenken6291.github.io/touhyou/" class="font-bold text-vote underline underline-offset-4">本番の投票はこちら</a>';
+          sendEvent('demo_vote', { choice: btn.querySelector('.label').textContent.trim() });
+        });
+      });
+    }
+
+    /* ---------- スクロールで表示 ---------- */
+    function setupReveal() {
+      const items = document.querySelectorAll('.reveal');
+      if (!('IntersectionObserver' in window)) {
+        items.forEach(el => el.classList.add('is-visible'));
+        return;
+      }
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target); }
+        });
+      }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+      items.forEach(el => io.observe(el));
+    }
+
+    /* ---------- スマホの固定ボタン ---------- */
+    function setupStickyCta() {
+      const sticky = document.getElementById('stickyCta');
+      const hero = document.querySelector('main > section');
+      const finalCta = document.querySelector('[data-track="final_cta"]');
+      if (!('IntersectionObserver' in window)) return;
+      let heroVisible = true, finalVisible = false;
+      const update = () => {
+        sticky.style.transform = (!heroVisible && !finalVisible) ? 'translateY(0)' : 'translateY(100%)';
+      };
+      new IntersectionObserver(([e]) => { heroVisible = e.isIntersecting; update(); }).observe(hero);
+      new IntersectionObserver(([e]) => { finalVisible = e.isIntersecting; update(); }).observe(finalCta);
+    }
+
+    /* =========================================================
+       GAS連携（スタブ）
+       ---------------------------------------------------------
+       Content-Type を text/plain にしているのは、GASへのPOSTで
+       CORSのプリフライト（事前確認）を発生させないためです。
+       GAS側では JSON.parse(e.postData.contents) で受け取れます。
+       ========================================================= */
+    async function postToGAS(payload) {
+      if (!CONFIG.GAS_ENDPOINT) {
+        console.info('[GAS未設定] 送信内容:', payload);
+        return { ok: true, demo: true };
+      }
+      const res = await fetch(CONFIG.GAS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    }
+
+    // アクセス集計（ページ表示・ボタンクリックなど）
+    function sendEvent(name, data = {}) {
+      if (!CONFIG.ENABLE_TRACKING || !CONFIG.GAS_ENDPOINT) return;
+      const payload = JSON.stringify({
+        action: 'track', event: name, data,
+        page: location.pathname, ref: document.referrer || '', ua: navigator.userAgent,
+        ts: new Date().toISOString()
+      });
+      // ページ移動中でも送れる sendBeacon を優先
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(CONFIG.GAS_ENDPOINT, new Blob([payload], { type: 'text/plain' }));
+      } else {
+        fetch(CONFIG.GAS_ENDPOINT, { method: 'POST', body: payload, keepalive: true, headers: { 'Content-Type': 'text/plain;charset=utf-8' } }).catch(() => {});
+      }
+    }
+
+    function setupTracking() {
+      sendEvent('page_view');
+      document.querySelectorAll('[data-track]').forEach((a) => {
+        a.addEventListener('click', () => sendEvent('cta_click', { id: a.dataset.track }));
+      });
+    }
+
+    // お問い合わせ・新着通知フォーム
+    function setupContactForm() {
+      const form = document.getElementById('contactForm');
+      const status = document.getElementById('contactStatus');
+      const submit = document.getElementById('contactSubmit');
+
+      const setStatus = (msg, color) => { status.textContent = msg; status.style.color = color; };
+
+      form.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        if (document.getElementById('cHoney').value) return; // スパム
+
+        const type = form.type.value;
+        const email = form.email.value.trim();
+        const message = form.message.value.trim();
+
+        if (type === 'notify' && !email) {
+          setStatus('お知らせを受け取るには、メールアドレスを入力してください。', '#C0392B');
+          form.email.focus(); return;
+        }
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          setStatus('メールアドレスの形式を確認してください（例：name@example.com）。', '#C0392B');
+          form.email.focus(); return;
+        }
+        if (type !== 'notify' && !message) {
+          setStatus('内容を入力してください。', '#C0392B');
+          form.message.focus(); return;
+        }
+
+        submit.disabled = true; submit.textContent = '送信中…';
+        try {
+          const result = await postToGAS({
+            action: 'contact', type, name: form.name.value.trim(), email, message,
+            page: location.href, ts: new Date().toISOString()
+          });
+          form.reset();
+          setStatus(result.demo ? '（テスト表示）送信先が未設定のため、実際には送信していません。' : '送信しました。ありがとうございます！', '#2BAE7E');
+        } catch (err) {
+          console.error(err);
+          setStatus('送信できませんでした。時間をおいてもう一度お試しください。', '#C0392B');
+        } finally {
+          submit.disabled = false; submit.textContent = '送信する';
+        }
+      });
+    }
+
+    /* ---------- 起動 ---------- */
+    document.getElementById('year').textContent = new Date().getFullYear();
+    setupVideo();
+    setupDemoPoll();
+    setupReveal();
+    setupStickyCta();
+    setupTracking();
+    setupContactForm();
+
+    /* =========================================================
+       【参考】GAS側（Code.gs）の受け口サンプル
+       ---------------------------------------------------------
+       function doPost(e) {
+         const data = JSON.parse(e.postData.contents);
+         const ss = SpreadsheetApp.openById('【スプレッドシートID】');
+         if (data.action === 'contact') {
+           ss.getSheetByName('問い合わせ').appendRow(
+             [new Date(), data.type, data.name, data.email, data.message, data.page]);
+           // 通知メール（任意）
+           // MailApp.sendEmail('自分のアドレス', '【投票LP】お問い合わせ', JSON.stringify(data, null, 2));
+         } else if (data.action === 'track') {
+           ss.getSheetByName('アクセス').appendRow(
+             [new Date(), data.event, JSON.stringify(data.data), data.page, data.ref, data.ua]);
+         }
+         return ContentService.createTextOutput(JSON.stringify({ ok: true }))
+           .setMimeType(ContentService.MimeType.JSON);
+       }
+       ========================================================= */
+  </script>
+</body>
+</html>
